@@ -57,7 +57,7 @@ void rotate_bot(int dir) {	// direction is LEFT or RIGHT
 
 void rotate_bot_angle(float angle) {	// positive for clockwise, negative for counterclockwise
   // this needs encoders for decent precision, otherwise it depends on how charged is the battery
-  int milis_per_rotation = 900;		// just an estimation for almost full battery...
+  int milis_per_rotation = 900;		    // just an estimation for an almost full battery...
 
   int dir;
   if (angle >= 0) {
@@ -76,11 +76,11 @@ void rotate_bot_angle(float angle) {	// positive for clockwise, negative for cou
 bool moving = false;
 bool obstacle = false;
 
-void loop() {	
-	int distance = sonar.ping_cm();
-	if (distance > 0)									// if distance == 0 then nothing in range OR it's touching obstacle
-		Serial.println(distance);	
-	obstacle = distance != 0 && distance < 10;
+void loop() {
+  int distance = sonar.ping_cm();
+  if (distance > 0)									// if distance == 0 then nothing in range OR it's touching obstacle
+    Serial.println(distance);
+  obstacle = distance != 0 && distance < 10;
 
   if (!moving) {
     if (!obstacle) {
@@ -89,11 +89,11 @@ void loop() {
     }
   }
   else {	// bot is moving
-  	if (obstacle) {
-  		stop_bot();
-  		rotate_bot_angle(180);
-  		moving = false;
-  	}
+    if (obstacle) {
+      stop_bot();
+      rotate_bot_angle(180);
+      moving = false;
+    }
   }
 
   delay(50);
