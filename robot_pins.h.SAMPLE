@@ -1,0 +1,8 @@
+#define LEFT_FWD_PIN 7
+#define LEFT_BACK_PIN 6 
+#define RIGHT_FWD_PIN 5
+#define RIGHT_BACK_PIN 4
+
+#define TRIGGER_PIN 12
+#define ECHO_PIN 13
+
