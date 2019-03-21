@@ -1,7 +1,7 @@
 #include <NewPing.h>
 #include "robot_pins.h"
 
-#define MAX_SONAR_DISTANCE 200	// can't do more than 450-500
+#define MAX_SONAR_DISTANCE 200  // can't do more than 450-500
 
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_SONAR_DISTANCE);
 
@@ -35,15 +35,15 @@ void stop_bot() {
   digitalWrite(RIGHT_BACK_PIN, LOW);
 }
 
-void move_bot(int dir) {		// direction is FWD or BACK
-  stop_bot();		 						// first cancel all other commands
+void move_bot(int dir) {  // direction is FWD or BACK
+  stop_bot();             // first cancel all other commands
 
   move_wheel(LEFT, dir);
   move_wheel(RIGHT, dir);
 }
 
-void rotate_bot(int dir) {	// direction is LEFT or RIGHT
-  stop_bot();								// first cancel all other commands so we can rotate in place
+void rotate_bot(int dir) {  // direction is LEFT or RIGHT
+  stop_bot();               // first cancel all other commands so we can rotate in place
 
   if (dir == LEFT) {
     move_wheel(LEFT, BACK);
@@ -55,9 +55,9 @@ void rotate_bot(int dir) {	// direction is LEFT or RIGHT
   }
 }
 
-void rotate_bot_angle(float angle) {	// positive for clockwise, negative for counterclockwise
+void rotate_bot_angle(float angle) {  // positive for clockwise, negative for counterclockwise
   // this needs encoders for decent precision, otherwise it depends on how charged is the battery
-  int milis_per_rotation = 900;		    // just an estimation for an almost full battery...
+  int milis_per_rotation = 900;       // just an estimation for an almost full battery...
 
   int dir;
   if (angle >= 0) {
@@ -78,7 +78,7 @@ bool obstacle = false;
 
 void loop() {
   int distance = sonar.ping_cm();
-  if (distance > 0)									// if distance == 0 then nothing in range OR it's touching obstacle
+  if (distance > 0)  // if distance is 0 then nothing is in range OR it's touching an obstacle
     Serial.println(distance);
   obstacle = distance != 0 && distance < 10;
 
@@ -88,7 +88,7 @@ void loop() {
       moving = true;
     }
   }
-  else {	// bot is moving
+  else {  // bot is moving
     if (obstacle) {
       stop_bot();
       rotate_bot_angle(180);
