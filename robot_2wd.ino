@@ -35,8 +35,8 @@ void stop_bot() {
   digitalWrite(RIGHT_BACK_PIN, LOW);
 }
 
-void move_bot(int dir) {  // direction is FWD or BACK
-  stop_bot();             // first cancel all other commands
+void move_bot(int dir) {    // direction is FWD or BACK
+  stop_bot();               // first cancel all other commands
 
   move_wheel(LEFT, dir);
   move_wheel(RIGHT, dir);
@@ -91,11 +91,10 @@ void loop() {
   else {  // bot is moving
     if (obstacle) {
       stop_bot();
-      rotate_bot_angle(180);
+      rotate_bot_angle(-180);
       moving = false;
     }
   }
 
   delay(50);
 }
-
