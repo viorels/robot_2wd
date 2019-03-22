@@ -4,7 +4,11 @@ This is the code for a simple two-wheel drive robot built with Arduino UNO, 2x D
 
 ## Installing
 
-Just install Arduino, clone the repository, copy robot\_pins.h.SAMPLE to robot\_pins.h and adjust for your configuration
+* install Arduino
+* install NewPing library (Tools > Manage Libraries)
+* clone this repository
+* copy robot\_pins.h.SAMPLE to robot\_pins.h and adjust for your configuration
+* upload sketch to robot
 
 ## Future improvements
 
