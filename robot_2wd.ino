@@ -23,9 +23,11 @@ int wheel_pins[][2] = {
   {LEFT_FWD_PIN, RIGHT_FWD_PIN},
   {LEFT_BACK_PIN, RIGHT_BACK_PIN}
 };
+int pwm_pins[] = {LEFT_PWM_PIN, RIGHT_PWM_PIN};
 
-void move_wheel(int wheel, int dir) {
+void move_wheel(int wheel, int dir, float speed) {
   digitalWrite(wheel_pins[dir][wheel], HIGH);
+  analogWrite(pwm_pins[wheel], speed * 255);
 }
 
 void stop_bot() {
@@ -35,23 +37,31 @@ void stop_bot() {
   digitalWrite(RIGHT_BACK_PIN, LOW);
 }
 
-void move_bot(int dir) {    // direction is FWD or BACK
+void move_bot(int dir, float speed) {
+  /*  direction is FWD or BACK
+   *  speed is between 0 and 1
+   */
+
   stop_bot();               // first cancel all other commands
 
-  move_wheel(LEFT, dir);
-  move_wheel(RIGHT, dir);
+  move_wheel(LEFT, dir, speed);
+  move_wheel(RIGHT, dir, speed);
 }
 
-void rotate_bot(int dir) {  // direction is LEFT or RIGHT
+void rotate_bot(int dir, float speed) {
+  /*  direction is LEFT or RIGHT
+      speed is between 0 and 1
+  */
+
   stop_bot();               // first cancel all other commands so we can rotate in place
 
   if (dir == LEFT) {
-    move_wheel(LEFT, BACK);
-    move_wheel(RIGHT, FWD);
+    move_wheel(LEFT, BACK, speed);
+    move_wheel(RIGHT, FWD, speed);
   }
   else if (dir == RIGHT) {
-    move_wheel(LEFT, FWD);
-    move_wheel(RIGHT, BACK);
+    move_wheel(LEFT, FWD, speed);
+    move_wheel(RIGHT, BACK, speed);
   }
 }
 
@@ -68,7 +78,7 @@ void rotate_bot_angle(float angle) {  // positive for clockwise, negative for co
     angle = abs(angle);
   }
 
-  rotate_bot(dir);
+  rotate_bot(dir, 1);
   delay(angle / 360 * milis_per_rotation);
   stop_bot();
 }
@@ -84,7 +94,7 @@ void loop() {
 
   if (!moving) {
     if (!obstacle) {
-      move_bot(FWD);
+      move_bot(FWD, 0.5);
       moving = true;
     }
   }
