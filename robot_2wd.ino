@@ -1,4 +1,5 @@
 #include <NewPing.h>
+#include "NewTone.h"
 #include "robot_pins.h"
 
 #define MAX_SONAR_DISTANCE 200  // can't do more than 450-500
@@ -85,11 +86,26 @@ void rotate_bot_angle(float angle) {  // positive for clockwise, negative for co
 
 bool moving = false;
 bool obstacle = false;
+unsigned long last_buzz = 0;
+
+#define NOTE_C3  131
+
+void sonar_buzz(int distance) {
+  int buzz_delay = 100 + distance * 10;
+  int buzz_tone = NOTE_C3 * (4 - 3 * (float)distance / MAX_SONAR_DISTANCE);
+  int buzz_duration = 25 + distance;
+  if (millis() - last_buzz > buzz_delay) {
+    NewTone(BUZZER_PIN, buzz_tone, buzz_duration);  // TODO: use TimerFreeTone to free up timer1?
+    last_buzz = millis();
+  }
+}
 
 void loop() {
   int distance = sonar.ping_cm();
-  if (distance > 0)  // if distance is 0 then nothing is in range OR it's touching an obstacle
+  if (distance > 0) {  // if distance is 0 then nothing is in range OR it's touching an obstacle
     Serial.println(distance);
+    sonar_buzz(distance);
+  }
   obstacle = distance != 0 && distance < 10;
 
   if (!moving) {

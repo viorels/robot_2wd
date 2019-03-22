@@ -9,8 +9,11 @@
 #define RIGHT_BACK_PIN 4
 
 // only pins 3, 5, 6, 9, 10, and 11 can do PWM
+// PWM pins 3 and 11 use Timer2, might conflict with NewPing?
 #define LEFT_PWM_PIN 9
 #define RIGHT_PWM_PIN 3
+
+#define BUZZER_PIN 10
 
 #define TRIGGER_PIN 12
 #define ECHO_PIN 13
