@@ -110,7 +110,7 @@ void loop() {
 
   if (!moving) {
     if (!obstacle) {
-      move_bot(FWD, 0.5);
+      move_bot(FWD, 0.7);
       moving = true;
     }
   }
