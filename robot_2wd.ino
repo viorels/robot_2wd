@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <NewPing.h>
 #include "NewTone.h"
 #include "robot_pins.h"
@@ -7,8 +8,8 @@ NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_SONAR_DISTANCE);
 
 #define LEFT 0
 #define RIGHT 1
-#define FWD 0
-#define BACK 1
+#define FWD 1
+#define BACK 0
 
 unsigned long timer_1s = 0;
 unsigned long timer_rotate = 0;
@@ -36,6 +37,11 @@ void setup() {
   pinMode(RIGHT_PWM_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 
+  pinMode(LEFT_ENCODER_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENCODER_PIN), encoder_left, RISING);
+  pinMode(RIGHT_ENCODER_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(RIGHT_ENCODER_PIN), encoder_right, RISING);
+
   int setup_duration = 30;  // wait 30ms for sonar
   set_timer(timer_1s, setup_duration);
 
@@ -43,15 +49,43 @@ void setup() {
   delay(setup_duration);
 }
 
+volatile long pulses[2] = {0, 0};
+volatile unsigned long last_pulse[2] = {0, 0};  // time for debouncing
+int pulse_dir[2] = {0, 0};  // +1/0/-1 for each wheel, depending on how power is applied to the engine
+int pulse_dir_delta[2] = {-1, +1};  // BACK = -1, FWD = +1
+
+void encoder_pulse(int wheel) {
+  if (millis() - last_pulse[wheel] >= 2) {  // debounce 2ms
+    pulses[wheel] = pulses[wheel] + pulse_dir[wheel];
+    last_pulse[wheel] = millis();
+  }
+}
+
+void encoder_left() {
+  encoder_pulse(LEFT);
+}
+
+void encoder_right() {
+  encoder_pulse(RIGHT);
+}
+
 int wheel_pins[][2] = {
-  {LEFT_FWD_PIN, RIGHT_FWD_PIN},
-  {LEFT_BACK_PIN, RIGHT_BACK_PIN}
+  {LEFT_BACK_PIN, RIGHT_BACK_PIN},
+  {LEFT_FWD_PIN, RIGHT_FWD_PIN}
 };
 int pwm_pins[] = {LEFT_PWM_PIN, RIGHT_PWM_PIN};
 
 void move_wheel(int wheel, int dir, float speed) {
-  digitalWrite(wheel_pins[dir][wheel], HIGH);
-  analogWrite(pwm_pins[wheel], speed * 255);
+  assert(speed > 0);
+  if (speed > 0) {
+    digitalWrite(wheel_pins[dir][wheel], HIGH);
+    analogWrite(pwm_pins[wheel], speed * 255);
+    pulse_dir[wheel] = pulse_dir_delta[dir];
+  }
+  else {
+    // TODO, stop both directions and reimplement stop_bot
+    pulse_dir[wheel] = 0;
+  }
 }
 
 void stop_bot() {
@@ -59,6 +93,8 @@ void stop_bot() {
   digitalWrite(RIGHT_FWD_PIN, LOW);
   digitalWrite(LEFT_BACK_PIN, LOW);
   digitalWrite(RIGHT_BACK_PIN, LOW);
+  pulse_dir[LEFT] = 0;
+  pulse_dir[RIGHT] = 0;
 }
 
 void move_bot(int dir, float speed) {
@@ -128,7 +164,7 @@ void echoCheck() {  // Timer2 interrupt calls this function every 24uS where you
   // Don't do anything here!
   if (sonar.check_timer()) {  // This is how you check to see if the ping was received.
     distance = sonar.ping_result / US_ROUNDTRIP_CM;  // Ping returned, uS result in ping_result, convert to cm with US_ROUNDTRIP_CM.
-    Serial.println(distance);
+//    Serial.println(distance);
   }
   // Don't do anything here!
 }
@@ -148,9 +184,16 @@ void loop() {
   }
   obstacle = distance != 0 && distance < 10;
 
+  static long last_second_pulses[2];
   if (check_timer(timer_1s)) {
-    set_timer(timer_1s, 1000);
     // execute every second
+    set_timer(timer_1s, 1000);
+
+    Serial.print(pulses[LEFT] - last_second_pulses[LEFT]);
+    Serial.print(" ");
+    Serial.println(pulses[RIGHT] - last_second_pulses[RIGHT]);
+    last_second_pulses[LEFT] = pulses[LEFT];
+    last_second_pulses[RIGHT] = pulses[RIGHT];
   }
 
   // stop rotation at specified time
@@ -164,7 +207,7 @@ void loop() {
   switch (state) {
     case STOPPED:
       if (!obstacle) {
-        move_bot(FWD, 0.7);
+        move_bot(FWD, 0.5);  // LIMITED SPEED
         state = MOVING;
       }
       break;

@@ -3,17 +3,21 @@
 // driver pins IN1/2 are for left wheel and IN3/4 are for right wheel
 // just have to figure out which one is forward ahd which is back
 
-#define LEFT_FWD_PIN 8
-#define LEFT_BACK_PIN 7
-#define RIGHT_FWD_PIN 4
-#define RIGHT_BACK_PIN 3
+#define LEFT_FWD_PIN 9
+#define LEFT_BACK_PIN 8
+#define RIGHT_FWD_PIN 7
+#define RIGHT_BACK_PIN 4
 
 // Arduino PWM pins: 5, 6 (Timer0), 9, 10 (Timer1/NewTone), 3, 11 (Timer2/NewPing)
 // For motor PWM, best are 5, 6 because Timer0 is unused by other library
 #define LEFT_PWM_PIN 6
 #define RIGHT_PWM_PIN 5
 
-#define BUZZER_PIN 9   // 9 or 10 (Timer1)
+// Only pins 2 and 3 are available for interrupts
+#define LEFT_ENCODER_PIN 3
+#define RIGHT_ENCODER_PIN 2
+
+#define BUZZER_PIN 10   // 9 or 10 (Timer1)
 
 #define TRIGGER_PIN 12
 #define ECHO_PIN 13
