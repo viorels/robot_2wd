@@ -1,3 +1,5 @@
+#define __ASSERT_USE_STDERR
+
 #include <assert.h>
 #include <NewPing.h>
 #include "NewTone.h"
@@ -10,6 +12,8 @@ NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_SONAR_DISTANCE);
 #define RIGHT 1
 #define FWD 1
 #define BACK 0
+
+#define LOOP_DELAY 30
 
 unsigned long timer_1s = 0;
 unsigned long timer_rotate = 0;
@@ -69,13 +73,13 @@ void encoder_right() {
   encoder_pulse(RIGHT);
 }
 
-int wheel_pins[][2] = {
-  {LEFT_BACK_PIN, RIGHT_BACK_PIN},
-  {LEFT_FWD_PIN, RIGHT_FWD_PIN}
-};
-int pwm_pins[] = {LEFT_PWM_PIN, RIGHT_PWM_PIN};
-
 void move_wheel(int wheel, int dir, float speed) {
+  static int wheel_pins[][2] = {
+    {LEFT_BACK_PIN, RIGHT_BACK_PIN},
+    {LEFT_FWD_PIN, RIGHT_FWD_PIN}
+  };
+  static int pwm_pins[] = {LEFT_PWM_PIN, RIGHT_PWM_PIN};
+
   assert(speed > 0);
   if (speed > 0) {
     digitalWrite(wheel_pins[dir][wheel], HIGH);
@@ -169,14 +173,29 @@ void echoCheck() {  // Timer2 interrupt calls this function every 24uS where you
   // Don't do anything here!
 }
 
+float get_speed(int wheel) {
+  static long last_time_pulses[2] = {0, 0};
+  static float value[2] = {0, 0};
+
+  float alpha = 0.2; // factor to tune
+  float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0/LOOP_DELAY;
+  value[wheel] = alpha * measurement + (1-alpha) * value[wheel];
+  last_time_pulses[wheel] = pulses[wheel];
+
+  return value[wheel];
+}
+
+// bot states
 #define STOPPED 0
 #define MOVING 1
 #define ROTATING 2
 
-int state = STOPPED;
-bool obstacle = false;
-
 void loop() {
+  static int bot_state = STOPPED;
+  static bool obstacle = false;
+  static int target_speed = 20;  // 20 pulses per rotation
+
+  long loop_start = millis();
   sonar.ping_timer(echoCheck);  // async
 
   if (distance > 0) {  // if distance is 0 then nothing is in range OR it's touching an obstacle
@@ -184,31 +203,29 @@ void loop() {
   }
   obstacle = distance != 0 && distance < 10;
 
-  static long last_second_pulses[2];
+  float speed_left = get_speed(LEFT);
+  float speed_right = get_speed(RIGHT);
+  Serial.println(speed_left);
+
   if (check_timer(timer_1s)) {
     // execute every second
     set_timer(timer_1s, 1000);
 
-    Serial.print(pulses[LEFT] - last_second_pulses[LEFT]);
-    Serial.print(" ");
-    Serial.println(pulses[RIGHT] - last_second_pulses[RIGHT]);
-    last_second_pulses[LEFT] = pulses[LEFT];
-    last_second_pulses[RIGHT] = pulses[RIGHT];
   }
 
   // stop rotation at specified time
   if (check_timer(timer_rotate)) {
-    if (state == ROTATING) {
+    if (bot_state == ROTATING) {
       stop_bot();
-      state = STOPPED;
+      bot_state = STOPPED;
     }
   }
 
-  switch (state) {
+  switch (bot_state) {
     case STOPPED:
       if (!obstacle) {
-        move_bot(FWD, 0.5);  // LIMITED SPEED
-        state = MOVING;
+        move_bot(FWD, 0.3);  // LIMITED SPEED
+        bot_state = MOVING;
       }
       break;
 
@@ -216,7 +233,7 @@ void loop() {
       if (obstacle) {
         stop_bot();
         rotate_bot_angle(-180);
-        state = ROTATING;
+        bot_state = ROTATING;
       }
       break;
 
@@ -226,5 +243,23 @@ void loop() {
 
   distance = 0;  // clear distance in case the obstacle is no longer there
 
-  delay(30);
+  long delay_left = LOOP_DELAY - (millis() - loop_start);
+  assert(delay_left > 0);
+  delay(delay_left);
+}
+
+void __assert(const char *__func, const char *__file, int __lineno, const char *__sexp) {
+    // transmit diagnostic informations through serial link.
+    Serial.print("assert");
+    Serial.print(" ");
+    Serial.print(__sexp);
+    Serial.print(" at ");
+    Serial.print(__file);
+    Serial.print(":");
+    Serial.print(__lineno, DEC);
+    Serial.print(" in ");
+    Serial.println(__func);
+    Serial.flush();
+    // abort program execution.
+    abort();
 }
