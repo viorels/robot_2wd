@@ -34,19 +34,26 @@ bool check_timer(unsigned long &timer) {
   return false;
 }
 
+#define SAMPLE_TIME 50
+
 // speed PID
 double motor_speed[2] = {0, 0};
 double motor_power[2] = {0.5, 0.5};  // 0-1 range
 double target_speed = 40;  // 20 slits and 40 change pulses per rotation
 
-#define SAMPLE_TIME 50
-
-//Specify the links and initial tuning parameters
 double Kp=0.01, Ki=0.01, Kd=0.0;
 PID speed_pid[2] = {
   PID(&motor_speed[0], &motor_power[0], &target_speed, Kp, Ki, Kd, DIRECT),
   PID(&motor_speed[1], &motor_power[1], &target_speed, Kp, Ki, Kd, DIRECT)
 };
+
+// direction PID
+double robot_dir = 0;   // degrees
+double target_dir = 0;  // where do we want to go
+double power_diff = 0;  // +/- for each wheel to achieve target_dir
+
+double Kp_dir=0.01, Ki_dir=0.01, Kd_dir=0.0;
+PID direction_pid(&robot_dir, &power_diff, &target_dir, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
 void setup() {
   Serial.begin(115200);
@@ -73,6 +80,10 @@ void setup() {
     speed_pid[i].SetOutputLimits(0.1, 1.0);
     speed_pid[i].SetSampleTime(SAMPLE_TIME);
   }
+
+  direction_pid.SetMode(AUTOMATIC);
+  direction_pid.SetOutputLimits(-1, 1);
+  direction_pid.SetSampleTime(SAMPLE_TIME);
 
   sonar.ping_timer(echoCheck);  // async
   delay(MAX_SONAR_TIME);
@@ -161,8 +172,7 @@ void rotate_bot(int dir) {
 }
 
 void rotate_bot_angle(float angle) {  // positive for clockwise, negative for counterclockwise
-  // this needs encoders for decent precision, otherwise it depends on how charged is the battery
-  int milis_per_rotation = 900;       // just an estimation for an almost full battery...
+  target_dir = normalize_angle(target_dir + angle);
 
   int dir;
   if (angle >= 0) {
@@ -173,6 +183,7 @@ void rotate_bot_angle(float angle) {  // positive for clockwise, negative for co
     angle = abs(angle);
   }
 
+  int milis_per_rotation = 1000;
   int duration = angle / 360 * milis_per_rotation;
   set_timer(timer_rotate, duration);
 
@@ -215,6 +226,20 @@ float get_speed(int wheel) {
   return abs(value[wheel]);
 }
 
+float get_direction() {
+  static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
+  return normalize_angle((pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
+}
+
+float normalize_angle(float angle) {
+  // return an angle between 0.0 and 359.99
+  float normalized = ((int)angle) % 360;
+  if (normalized < 0)
+    normalized += 360;
+  normalized += angle - (int)angle;
+  return normalized;
+}
+
 // bot states
 #define STOPPED 0
 #define MOVING 1
@@ -242,19 +267,31 @@ void loop() {
 
     motor_speed[0] = get_speed(LEFT);
     motor_speed[1] = get_speed(RIGHT);
+/*
     Serial.print(motor_speed[0]);
     Serial.print(" ");
     Serial.print(motor_speed[1]);
     Serial.print(" ");
-
+*/
     for (int i=0; i<2; i++) {
-      if (speed_pid[i].Compute()) {
-        update_wheel_power();
-      }
+      speed_pid[i].Compute();
+    }
+
+    robot_dir = get_direction();
+    direction_pid.Compute();
+    motor_power[LEFT] = constrain(motor_power[LEFT] + power_diff, 0.1, 1);
+    motor_power[RIGHT] = constrain(motor_power[RIGHT] - power_diff, 0.1, 1);
+
+    Serial.print(robot_dir);
+    Serial.print(" ");
+    for (int i=0; i<2; i++) {
+      speed_pid[i].Compute();
       Serial.print(motor_power[i] * 100);
       Serial.print(" ");
     }
     Serial.println("");
+
+    update_wheel_power();
   }
 
 
