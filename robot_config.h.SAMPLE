@@ -1,4 +1,6 @@
-// rename this to robot_pins.h and adjust numbers for your configuration
+#pragma once
+
+// rename this to robot_config.h and adjust numbers for your configuration
 
 // driver pins IN1/2 are for left wheel and IN3/4 are for right wheel
 // just have to figure out which one is forward ahd which is back
@@ -21,3 +23,10 @@
 
 #define TRIGGER_PIN 12
 #define ECHO_PIN 13
+
+// robot structure
+
+#define WHEEL_DIST 0.13
+#define WHEEL_DIAM 0.07
+#define WHEEL_ENCODER_PULSES 40  // 20 slits, 40 changes
+
