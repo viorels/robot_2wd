@@ -122,7 +122,7 @@ void loop() {
     case MOVING:
       if (obstacle) {
         stop_bot();
-        rotate_bot(-180);
+        rotate_bot(180);
         bot_state = ROTATING;
       }
       break;

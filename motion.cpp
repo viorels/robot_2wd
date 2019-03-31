@@ -12,8 +12,8 @@ double motor_power[2] = {0.0, 0.0};  // 0-1 range
 double target_speed[2] = {0.0, 0.0};  // in pulses/s
 float target_speed_mps = 0;  // in m/s
 
-double Kp = 0.01, Ki = 0.01, Kd = 0.0;
-double speed_pid_limits[2] = {0.1, 1.0};
+double Kp = 0.005, Ki = 0.01, Kd = 0.0002;
+double speed_pid_limits[2] = {-1.0, 1.0};
 PID speed_pid[2] = {
   PID(&motor_speed[0], &motor_power[0], &target_speed[0], Kp, Ki, Kd, DIRECT),
   PID(&motor_speed[1], &motor_power[1], &target_speed[1], Kp, Ki, Kd, DIRECT)
@@ -26,7 +26,7 @@ double target_dir_closest = 0;  // not normalized angle that is closest in value
 double speed_diff = 0;  // +/- for each wheel to achieve target_dir
 
 double Kp_dir = 0.5, Ki_dir = 0.1, Kd_dir = 0.1;
-double direction_pid_limits[2] = {-10, +10};
+double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
 volatile long pulses[2] = {0, 0};
@@ -86,8 +86,8 @@ float mps_to_pps(float mps) {
 void set_speed(float left, float right) {
   // speed for each wheel in mps
   target_speed_mps = (left + right) / 2;
-  target_speed[0] = mps_to_pps(left);
-  target_speed[1] = mps_to_pps(right);
+  target_speed[LEFT] = mps_to_pps(left);
+  target_speed[RIGHT] = mps_to_pps(right);
 }
 
 float normalize_angle(float angle) {
@@ -119,7 +119,7 @@ float measure_speed(int wheel) {
   static long last_time_pulses[2] = {0, 0};
   static float value[2] = {0, 0};
 
-  float alpha = 0.25; // factor to tune
+  float alpha = 0.1; // factor to tune
   float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0 / SAMPLE_TIME;
   value[wheel] = alpha * measurement + (1 - alpha) * value[wheel];
   last_time_pulses[wheel] = pulses[wheel];
