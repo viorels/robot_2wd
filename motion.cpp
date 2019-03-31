@@ -135,25 +135,26 @@ void motors_update() {
   // called every SAMPLE_TIME ms
 
   robot_dir = get_direction();
-//  if (normalize_angle(target_dir - robot_dir) > 180 && target_dir > 0)
-//    target_dir_closest = target_dir - 360;
-//  else
-  target_dir_closest = target_dir;
+  if (target_dir > robot_dir && target_dir - robot_dir > 180)
+    target_dir_closest = target_dir - 360;
+  else if (target_dir < robot_dir && robot_dir - target_dir > 180)
+    target_dir_closest = target_dir + 360;
+  else
+    target_dir_closest = target_dir;
   direction_pid.Compute();
 
   int speed_limit_pps = mps_to_pps(MAX_SPEED);
   target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
   target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
 
-  Serial.print(target_dir);
+  Serial.print(target_dir_closest);
   Serial.print(" - ");
   Serial.print(robot_dir);
   Serial.print(" = ");
-  Serial.print(target_dir - robot_dir);
-  Serial.print("\t");
-  Serial.print(target_dir_closest);
+  Serial.print(target_dir_closest - robot_dir);
   Serial.print("\t");
   Serial.print(speed_diff);
+
   for (int i = 0; i < 2; i++) {
     speed_pid[i].Compute();
   }
@@ -162,16 +163,15 @@ void motors_update() {
   motor_speed[1] = measure_speed(RIGHT);
 
 /*
+  Serial.print(motor_speed[LEFT]);
   Serial.print("\t");
-  Serial.print(motor_speed[0]);
+  Serial.print(motor_power[LEFT] * 100);
   Serial.print("\t");
-  Serial.print(motor_speed[1]);
+  Serial.print(motor_speed[RIGHT]);
+  Serial.print("\t");
+  Serial.print(motor_power[RIGHT] * 100);
 */
   Serial.println("");
-
-  for (int i = 0; i < 2; i++) {
-    speed_pid[i].Compute();
-  }
 
   for (int wheel = 0; wheel < 2; wheel++)
     set_motor_power(wheel, motor_power[wheel]);
