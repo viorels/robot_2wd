@@ -11,12 +11,15 @@ NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_SONAR_DISTANCE);
 
 unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
-unsigned long timer_rotate = 0;
 unsigned long timer_sonar = 0;
+
+float speed = MAX_SPEED / 3;
+float direction = 90;
 
 void setup() {
   Serial.begin(115200);
 
+  set_direction(direction);
   motors_setup();
 
   pinMode(BUZZER_PIN, OUTPUT);
@@ -29,53 +32,25 @@ void setup() {
   delay(MAX_SONAR_TIME);
 }
 
-extern double motor_power[2];
-
 void move_bot(int dir) {
   /*  direction is FWD or BACK
-   *  speed is between 0 and 1
    */
-
-  stop_bot();               // first cancel all other commands
-
-  move_wheel(LEFT, dir, motor_power[LEFT]);
-  move_wheel(RIGHT, dir, motor_power[RIGHT]);
+  static int dir_sign[2] = {-1, +1};
+  set_speed(dir_sign[dir] * speed, dir_sign[dir] * speed);
 }
 
-void rotate_bot(int dir) {
-  /*  direction is LEFT or RIGHT
-      speed is between 0 and 1
-  */
-
-  stop_bot();               // first cancel all other commands so we can rotate in place
-
-  if (dir == LEFT) {
-    move_wheel(LEFT, BACK, motor_power[LEFT]);
-    move_wheel(RIGHT, FWD, motor_power[RIGHT]);
-  }
-  else if (dir == RIGHT) {
-    move_wheel(LEFT, FWD, motor_power[LEFT]);
-    move_wheel(RIGHT, BACK, motor_power[RIGHT]);
-  }
+void rotate_bot(float angle) {
+  // angle is positive for clockwise, negative for counterclockwise
+  direction = normalize_angle(get_direction() + angle);
+  set_direction(direction);
 }
 
-void rotate_bot_angle(float angle) {  // positive for clockwise, negative for counterclockwise
-  bot_direction_change(angle);
+bool rotation_finished() {
+  return abs_angle_diff(get_direction(), direction) < 5;
+}
 
-  int dir;
-  if (angle >= 0) {
-    dir = RIGHT;
-  }
-  else {
-    dir = LEFT;
-    angle = abs(angle);
-  }
-
-  int milis_per_rotation = 1000;
-  int duration = angle / 360 * milis_per_rotation;
-  set_timer(timer_rotate, duration);
-
-  rotate_bot(dir);
+void stop_bot() {
+  set_speed(0, 0);
 }
 
 #define NOTE_C3  131
@@ -127,21 +102,13 @@ void loop() {
   if (check_timer(timer_sample)) {
     set_timer(timer_sample, SAMPLE_TIME);
 
-    update_motors_pid();
+    motors_update();
   }
 
   if (check_timer(timer_1s)) {
     // execute every second
     set_timer(timer_1s, 1000);
 
-  }
-
-  // stop rotation at specified time
-  if (check_timer(timer_rotate)) {
-    if (bot_state == ROTATING) {
-      stop_bot();
-      bot_state = STOPPED;
-    }
   }
 
   switch (bot_state) {
@@ -155,12 +122,16 @@ void loop() {
     case MOVING:
       if (obstacle) {
         stop_bot();
-        rotate_bot_angle(-180);
+        rotate_bot(-180);
         bot_state = ROTATING;
       }
       break;
 
     case ROTATING:
+      if (rotation_finished()) {
+        bot_state = STOPPED;
+      }
+
       break;
   }
 }

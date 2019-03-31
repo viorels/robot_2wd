@@ -8,12 +8,16 @@
 #define SAMPLE_TIME 50
 
 void motors_setup();
-void move_wheel(int wheel, int dir, float speed);
-void motors_power(float left, float right);
-void update_wheel_power();
-void bot_direction(float angle);
-void bot_direction_change(float angle);
+void motors_update();
+
+void set_speed(float left, float right);
+void set_direction(float angle);
+
+// average speed between 2 wheels
+float get_speed();
+
+// get direction as measured by encoder
 float get_direction();
-float get_speed(int wheel);
-void update_motors_pid();
-void stop_bot();
+
+float normalize_angle(float angle);
+float abs_angle_diff(float a, float b);
