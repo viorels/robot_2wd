@@ -75,7 +75,7 @@ void set_motor_power(int wheel, float power) {
       digitalWrite(wheel_pins[wheel][dir], pin_values[dir]);
   }
 
-  analogWrite(pwm_pins[wheel], power * 255);
+  analogWrite(pwm_pins[wheel], abs(power) * 255);
 }
 
 float mps_to_pps(float mps) {
@@ -124,11 +124,11 @@ float measure_speed(int wheel) {
   value[wheel] = alpha * measurement + (1 - alpha) * value[wheel];
   last_time_pulses[wheel] = pulses[wheel];
 
-  return abs(value[wheel]);
+  return value[wheel];
 }
 
 float get_speed() {
-  return (measure_speed(LEFT) + measure_speed(RIGHT)) / 2;
+  return (motor_speed[LEFT] + motor_speed[RIGHT]) / 2;
 }
 
 void motors_update() {

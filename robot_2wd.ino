@@ -13,8 +13,8 @@ unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
 unsigned long timer_sonar = 0;
 
-float speed = MAX_SPEED / 3;
-float direction = 90;
+float speed = MAX_SPEED / 2;
+float direction = 0;
 
 void setup() {
   Serial.begin(115200);
