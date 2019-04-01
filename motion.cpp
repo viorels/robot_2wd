@@ -1,5 +1,6 @@
 #define __ASSERT_USE_STDERR
 #include <assert.h>
+#include "utils.h"
 
 #include <PID_v1.h>
 #include <Arduino.h>
@@ -50,12 +51,6 @@ void encoder_right() {
   encoder_pulse(RIGHT);
 }
 
-static inline int8_t sign(float val) {
-  if (val < 0) return -1;
-  if (val == 0) return 0;
-  return 1;
-}
-
 void set_motor_power(int wheel, float power) {
   static int wheel_pins[][2] = {
     {LEFT_BACK_PIN, LEFT_FWD_PIN},
@@ -96,22 +91,6 @@ void set_speed(float left, float right) {
   motor_speed[RIGHT] = mps_to_pps(right);
 }
 
-float normalize_angle(float angle) {
-  // return an angle between 0.0 and 359.99
-  float normalized = ((int)angle) % 360;
-  if (normalized < 0)
-    normalized += 360;
-  normalized += angle - (int)angle;
-  return normalized;
-}
-
-float abs_angle_diff(float a, float b) {
-  if (a > b)
-    return normalize_angle(a - b);
-  else
-    return normalize_angle(b - a);
-}
-
 void set_direction(float angle) {
   if (initial_dir == -1)
     initial_dir = angle;
@@ -143,15 +122,6 @@ void measure_speed() {
 
 float get_speed() {
   return (motor_speed[LEFT] + motor_speed[RIGHT]) / 2;
-}
-
-float closest_angle(float angle, float reference) {
-  // finds the closest angle to the reference angle, even if it means being negative or > 360
-  if (angle > reference && angle - reference > 180)
-    return angle - 360;
-  else if (angle < reference && reference - angle > 180)
-    return angle + 360;
-  return angle;
 }
 
 void motors_update() {
@@ -217,20 +187,4 @@ void motors_setup() {
   direction_pid.SetMode(AUTOMATIC);
   direction_pid.SetOutputLimits(direction_pid_limits[0], direction_pid_limits[1]);
   direction_pid.SetSampleTime(SAMPLE_TIME);
-}
-
-void __assert(const char *__func, const char *__file, int __lineno, const char *__sexp) {
-  // transmit diagnostic informations through serial link.
-  Serial.print("assert");
-  Serial.print(" ");
-  Serial.print(__sexp);
-  Serial.print(" at ");
-  Serial.print(__file);
-  Serial.print(":");
-  Serial.print(__lineno, DEC);
-  Serial.print(" in ");
-  Serial.println(__func);
-  Serial.flush();
-  // abort program execution.
-  abort();
 }

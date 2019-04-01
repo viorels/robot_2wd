@@ -3,7 +3,7 @@
 #include <PID_v1.h>
 #include "robot_config.h"
 #include "motion.h"
-#include "timer.h"
+#include "utils.h"
 
 #define MAX_SONAR_DISTANCE 200  // can't do more than 450-500
 #define MAX_SONAR_TIME 50 // wait for echo and fade
