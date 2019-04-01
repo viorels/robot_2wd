@@ -90,6 +90,10 @@ void set_speed(float left, float right) {
   target_speed_mps = (left + right) / 2;
   target_speed[LEFT] = mps_to_pps(left);
   target_speed[RIGHT] = mps_to_pps(right);
+
+  // be optimistic about actual speed
+  motor_speed[LEFT] = mps_to_pps(left);
+  motor_speed[RIGHT] = mps_to_pps(right);
 }
 
 float normalize_angle(float angle) {
@@ -132,19 +136,15 @@ float get_direction() {
   return robot_dir;
 }
 
-float measure_speed(int wheel) {
+void measure_speed() {
   static long last_time_pulses[2] = {0, 0};
-  static float value[2] = {0, 0};
 
   float alpha = 0.2; // factor to tune
-  float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0 / SAMPLE_TIME;
-  if (value[wheel] == 0)
-    value[wheel] = measurement;
-  else
-    value[wheel] = alpha * measurement + (1 - alpha) * value[wheel];
-  last_time_pulses[wheel] = pulses[wheel];
-
-  return value[wheel];
+  for (int wheel = 0; wheel < 2; wheel++) {
+    float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0 / SAMPLE_TIME;
+      motor_speed[wheel] = alpha * measurement + (1 - alpha) * motor_speed[wheel];
+    last_time_pulses[wheel] = pulses[wheel];
+  }
 }
 
 float get_speed() {
@@ -184,10 +184,8 @@ void motors_update() {
     speed_pid[i].Compute();
   }
 
-  motor_speed[0] = measure_speed(LEFT);
-  motor_speed[1] = measure_speed(RIGHT);
+  measure_speed();
 
-/*
   Serial.print(motor_speed[LEFT]);
   Serial.print("\t");
   Serial.print(motor_power[LEFT] * 100);
@@ -195,7 +193,7 @@ void motors_update() {
   Serial.print(motor_speed[RIGHT]);
   Serial.print("\t");
   Serial.print(motor_power[RIGHT] * 100);
-*/
+
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)
