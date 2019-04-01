@@ -21,3 +21,4 @@ float get_direction();
 
 float normalize_angle(float angle);
 float abs_angle_diff(float a, float b);
+float closest_angle(float angle, float reference);

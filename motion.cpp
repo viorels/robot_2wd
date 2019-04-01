@@ -12,7 +12,7 @@ double motor_power[2] = {0.0, 0.0};  // 0-1 range
 double target_speed[2] = {0.0, 0.0};  // in pulses/s
 float target_speed_mps = 0;  // in m/s
 
-double Kp = 0.005, Ki = 0.01, Kd = 0.0002;
+double Kp = 0.01, Ki = 0.01, Kd = 0.0002;
 double speed_pid_limits[2] = {-1.0, 1.0};
 PID speed_pid[2] = {
   PID(&motor_speed[0], &motor_power[0], &target_speed[0], Kp, Ki, Kd, DIRECT),
@@ -25,7 +25,8 @@ double target_dir = 0;  // where do we want to go
 double target_dir_closest = 0;  // not normalized angle that is closest in value to current direction
 double speed_diff = 0;  // +/- for each wheel to achieve target_dir
 
-double Kp_dir = 0.5, Ki_dir = 0.1, Kd_dir = 0.1;
+//double Kp_dir = 1, Ki_dir = 0.5, Kd_dir = 0.05;
+double Kp_dir = 0.1, Ki_dir = 0.001, Kd_dir = 0.01;
 double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
@@ -110,18 +111,34 @@ void set_direction(float angle) {
   target_dir = angle;
 }
 
-float get_direction() {
+float measure_direction() {
+  static float value = -1;
   static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
-  return normalize_angle((pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
+
+  float alpha = 0.2;
+  float measurement = normalize_angle((pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
+  if (value == -1)
+    value = measurement;
+  else {
+    value = alpha * closest_angle(measurement, value) + (1 - alpha) * value;
+  }
+  return normalize_angle(value);
+}
+
+float get_direction() {
+  return robot_dir;
 }
 
 float measure_speed(int wheel) {
   static long last_time_pulses[2] = {0, 0};
   static float value[2] = {0, 0};
 
-  float alpha = 0.1; // factor to tune
+  float alpha = 0.2; // factor to tune
   float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0 / SAMPLE_TIME;
-  value[wheel] = alpha * measurement + (1 - alpha) * value[wheel];
+  if (value[wheel] == 0)
+    value[wheel] = measurement;
+  else
+    value[wheel] = alpha * measurement + (1 - alpha) * value[wheel];
   last_time_pulses[wheel] = pulses[wheel];
 
   return value[wheel];
@@ -131,16 +148,20 @@ float get_speed() {
   return (motor_speed[LEFT] + motor_speed[RIGHT]) / 2;
 }
 
+float closest_angle(float angle, float reference) {
+  // finds the closest angle to the reference angle, even if it means being negative or > 360
+  if (angle > reference && angle - reference > 180)
+    return angle - 360;
+  else if (angle < reference && reference - angle > 180)
+    return angle + 360;
+  return angle;
+}
+
 void motors_update() {
   // called every SAMPLE_TIME ms
 
-  robot_dir = get_direction();
-  if (target_dir > robot_dir && target_dir - robot_dir > 180)
-    target_dir_closest = target_dir - 360;
-  else if (target_dir < robot_dir && robot_dir - target_dir > 180)
-    target_dir_closest = target_dir + 360;
-  else
-    target_dir_closest = target_dir;
+  robot_dir = measure_direction();
+  target_dir_closest = closest_angle(target_dir, robot_dir);
   direction_pid.Compute();
 
   int speed_limit_pps = mps_to_pps(MAX_SPEED);
@@ -150,11 +171,12 @@ void motors_update() {
   Serial.print(target_dir_closest);
   Serial.print(" - ");
   Serial.print(robot_dir);
+/*
   Serial.print(" = ");
   Serial.print(target_dir_closest - robot_dir);
   Serial.print("\t");
   Serial.print(speed_diff);
-
+*/
   for (int i = 0; i < 2; i++) {
     speed_pid[i].Compute();
   }
