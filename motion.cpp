@@ -20,13 +20,14 @@ PID speed_pid[2] = {
 };
 
 // direction PID
-double robot_dir = 0;   // degrees
-double target_dir = 0;  // where do we want to go
-double target_dir_closest = 0;  // not normalized angle that is closest in value to current direction
+double initial_dir = -1;  // reference for pulse differences between wheels
+double robot_dir = -1;    // degrees
+double target_dir = -1;   // where do we want to go
+double target_dir_closest = -1;  // not normalized angle that is closest in value to current direction
 double speed_diff = 0;  // +/- for each wheel to achieve target_dir
 
 //double Kp_dir = 1, Ki_dir = 0.5, Kd_dir = 0.05;
-double Kp_dir = 0.1, Ki_dir = 0.001, Kd_dir = 0.01;
+double Kp_dir = 0.1, Ki_dir = 0.0, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
 double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
@@ -108,6 +109,8 @@ float abs_angle_diff(float a, float b) {
 }
 
 void set_direction(float angle) {
+  if (initial_dir == -1)
+    initial_dir = angle;
   target_dir = angle;
 }
 
@@ -116,7 +119,7 @@ float measure_direction() {
   static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
 
   float alpha = 0.2;
-  float measurement = normalize_angle((pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
+  float measurement = normalize_angle(initial_dir + (pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
   if (value == -1)
     value = measurement;
   else {
