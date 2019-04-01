@@ -118,18 +118,12 @@ void set_direction(float angle) {
   target_dir = angle;
 }
 
-float measure_direction() {
-  static float value = -1;
+void measure_direction() {
   static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
 
   float alpha = 0.2;
   float measurement = normalize_angle(initial_dir + (pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
-  if (value == -1)
-    value = measurement;
-  else {
-    value = alpha * closest_angle(measurement, value) + (1 - alpha) * value;
-  }
-  return normalize_angle(value);
+  robot_dir = normalize_angle(alpha * closest_angle(measurement, robot_dir) + (1 - alpha) * robot_dir);
 }
 
 float get_direction() {
@@ -163,7 +157,7 @@ float closest_angle(float angle, float reference) {
 void motors_update() {
   // called every SAMPLE_TIME ms
 
-  robot_dir = measure_direction();
+  measure_direction();
   target_dir_closest = closest_angle(target_dir, robot_dir);
   direction_pid.Compute();
 
