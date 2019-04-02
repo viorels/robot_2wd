@@ -11,10 +11,8 @@ void motors_setup();
 void motors_update();
 
 void set_speed(float left, float right);
+float get_speed();  // average speed between 2 wheels
+
 void set_direction(float angle);
-
-// average speed between 2 wheels
-float get_speed();
-
-// get direction as measured by encoder
-float get_direction();
+float get_direction();  // get direction as measured by encoder
+float get_target_direction();

@@ -28,7 +28,7 @@ double target_dir_closest = -1;  // not normalized angle that is closest in valu
 double speed_diff = 0;  // +/- for each wheel to achieve target_dir
 
 //double Kp_dir = 1, Ki_dir = 0.5, Kd_dir = 0.05;
-double Kp_dir = 0.1, Ki_dir = 0.0, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
+double Kp_dir = 0.2, Ki_dir = 1, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
 double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
@@ -89,6 +89,13 @@ void set_speed(float left, float right) {
   // be optimistic about actual speed
   motor_speed[LEFT] = mps_to_pps(left);
   motor_speed[RIGHT] = mps_to_pps(right);
+
+  if (left * right > 0) {  // both wheels in same direction
+    direction_pid.SetMode(AUTOMATIC);
+  }
+  else {
+    direction_pid.SetMode(MANUAL);
+  }
 }
 
 void set_direction(float angle) {
@@ -100,13 +107,17 @@ void set_direction(float angle) {
 void measure_direction() {
   static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
 
-  float alpha = 0.2;
+  float alpha = 0.5;
   float measurement = normalize_angle(initial_dir + (pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
   robot_dir = normalize_angle(alpha * closest_angle(measurement, robot_dir) + (1 - alpha) * robot_dir);
 }
 
 float get_direction() {
   return robot_dir;
+}
+
+float get_target_direction() {
+  return target_dir;
 }
 
 void measure_speed() {
@@ -129,27 +140,28 @@ void motors_update() {
 
   measure_direction();
   target_dir_closest = closest_angle(target_dir, robot_dir);
-  direction_pid.Compute();
+  if (direction_pid.GetMode() == AUTOMATIC && direction_pid.Compute()) {
+    int speed_limit_pps = mps_to_pps(MAX_SPEED);
+    target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
+    target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
+  }
 
-  int speed_limit_pps = mps_to_pps(MAX_SPEED);
-  target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
-  target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
 
   Serial.print(target_dir_closest);
   Serial.print(" - ");
   Serial.print(robot_dir);
-/*
-  Serial.print(" = ");
-  Serial.print(target_dir_closest - robot_dir);
+//  Serial.print(" = ");
+//  Serial.print(target_dir_closest - robot_dir);
   Serial.print("\t");
-  Serial.print(speed_diff);
-*/
+  Serial.print(speed_diff * 10);
+
   for (int i = 0; i < 2; i++) {
     speed_pid[i].Compute();
   }
 
-  measure_speed();
 
+  measure_speed();
+/*
   Serial.print(motor_speed[LEFT]);
   Serial.print("\t");
   Serial.print(motor_power[LEFT] * 100);
@@ -157,7 +169,7 @@ void motors_update() {
   Serial.print(motor_speed[RIGHT]);
   Serial.print("\t");
   Serial.print(motor_power[RIGHT] * 100);
-
+*/
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)

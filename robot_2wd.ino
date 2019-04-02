@@ -13,8 +13,8 @@ unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
 unsigned long timer_sonar = 0;
 
-float speed = MAX_SPEED / 2;
-float direction = 45;
+float speed = MAX_SPEED / 4;
+float direction = 90;
 
 void setup() {
   Serial.begin(115200);
@@ -41,12 +41,14 @@ void move_bot(int dir) {
 
 void rotate_bot(float angle) {
   // angle is positive for clockwise, negative for counterclockwise
-  direction = normalize_angle(get_direction() + angle);
+  direction = normalize_angle(get_target_direction() + angle);
   set_direction(direction);
+  int angle_sign = sign(angle);
+  set_speed(angle_sign * speed, -angle_sign * speed);
 }
 
 bool rotation_finished() {
-  return abs_angle_diff(get_direction(), direction) < 5;
+  return abs_angle_diff(get_direction(), direction) < 15;
 }
 
 void stop_bot() {
