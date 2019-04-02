@@ -5,12 +5,12 @@
 #define FWD 1
 #define BACK 0
 
-#define SAMPLE_TIME 50
+#define SAMPLE_TIME 20
 
 void motors_setup();
 void motors_update();
 
-void set_speed(float left, float right);
+void set_speed(float target_speed_mps);
 float get_speed();  // average speed between 2 wheels
 
 void set_direction(float angle);

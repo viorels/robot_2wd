@@ -13,7 +13,7 @@ unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
 unsigned long timer_sonar = 0;
 
-float speed = MAX_SPEED / 4;
+float speed = MAX_SPEED / 2;
 float direction = 90;
 
 void setup() {
@@ -36,7 +36,7 @@ void move_bot(int dir) {
   /*  direction is FWD or BACK
    */
   static int dir_sign[2] = {-1, +1};
-  set_speed(dir_sign[dir] * speed, dir_sign[dir] * speed);
+  set_speed(dir_sign[dir] * speed);
 }
 
 void rotate_bot(float angle) {
@@ -44,7 +44,7 @@ void rotate_bot(float angle) {
   direction = normalize_angle(get_target_direction() + angle);
   set_direction(direction);
   int angle_sign = sign(angle);
-  set_speed(angle_sign * speed, -angle_sign * speed);
+//  set_speed(angle_sign * speed, -angle_sign * speed);
 }
 
 bool rotation_finished() {
@@ -52,7 +52,7 @@ bool rotation_finished() {
 }
 
 void stop_bot() {
-  set_speed(0, 0);
+  set_speed(0);
 }
 
 #define NOTE_C3  131

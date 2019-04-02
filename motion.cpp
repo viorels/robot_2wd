@@ -8,17 +8,14 @@
 #include "motion.h"
 
 // speed PID
-double motor_speed[2] = {0.0, 0.0};
-double motor_power[2] = {0.0, 0.0};  // 0-1 range
-double target_speed[2] = {0.0, 0.0};  // in pulses/s
-float target_speed_mps = 0;  // in m/s
+double motors_power = 0.0;    // -1 - +1 range
+double motors_speed = 0.0;    // pulses/s, average between 2 wheels
+double target_speed = 0.0;    // in pulses/s
+float target_speed_mps = 0;   // in m/s
 
-double Kp = 0.01, Ki = 0.01, Kd = 0.0002;
+double Kp = 0.02, Ki = 0.0, Kd = 0.0;
 double speed_pid_limits[2] = {-1.0, 1.0};
-PID speed_pid[2] = {
-  PID(&motor_speed[0], &motor_power[0], &target_speed[0], Kp, Ki, Kd, DIRECT),
-  PID(&motor_speed[1], &motor_power[1], &target_speed[1], Kp, Ki, Kd, DIRECT)
-};
+PID speed_pid(&motors_speed, &motors_power, &target_speed, Kp, Ki, Kd, DIRECT);
 
 // direction PID
 double initial_dir = -1;  // reference for pulse differences between wheels
@@ -80,22 +77,11 @@ float mps_to_pps(float mps) {
   return mps / (PI * WHEEL_DIAM) * WHEEL_ENCODER_PULSES;
 }
 
-void set_speed(float left, float right) {
-  // speed for each wheel in mps
-  target_speed_mps = (left + right) / 2;
-  target_speed[LEFT] = mps_to_pps(left);
-  target_speed[RIGHT] = mps_to_pps(right);
+void set_speed(float target_speed_mps) {
+  target_speed = mps_to_pps(target_speed_mps);
 
   // be optimistic about actual speed
-  motor_speed[LEFT] = mps_to_pps(left);
-  motor_speed[RIGHT] = mps_to_pps(right);
-
-  if (left * right > 0) {  // both wheels in same direction
-    direction_pid.SetMode(AUTOMATIC);
-  }
-  else {
-    direction_pid.SetMode(MANUAL);
-  }
+  motors_speed = target_speed;
 }
 
 void set_direction(float angle) {
@@ -107,7 +93,7 @@ void set_direction(float angle) {
 void measure_direction() {
   static float pulses_per_deg = 2.0 * WHEEL_DIST / WHEEL_DIAM * WHEEL_ENCODER_PULSES / 360;
 
-  float alpha = 0.5;
+  float alpha = 0.5;  // TODO: this should not be needed
   float measurement = normalize_angle(initial_dir + (pulses[LEFT] - pulses[RIGHT]) / pulses_per_deg);
   robot_dir = normalize_angle(alpha * closest_angle(measurement, robot_dir) + (1 - alpha) * robot_dir);
 }
@@ -123,21 +109,35 @@ float get_target_direction() {
 void measure_speed() {
   static long last_time_pulses[2] = {0, 0};
 
-  float alpha = 0.2; // factor to tune
+  long new_pulses = 0;
   for (int wheel = 0; wheel < 2; wheel++) {
-    float measurement = (pulses[wheel] - last_time_pulses[wheel]) * 1000.0 / SAMPLE_TIME;
-      motor_speed[wheel] = alpha * measurement + (1 - alpha) * motor_speed[wheel];
+    new_pulses += pulses[wheel] - last_time_pulses[wheel];
     last_time_pulses[wheel] = pulses[wheel];
   }
+  new_pulses /= 2.0;  // average the 2 wheels
+  double measurement = new_pulses * 1000.0 / SAMPLE_TIME;
+
+  float alpha = 0.1; // factor to tune
+  motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
 }
 
 float get_speed() {
-  return (motor_speed[LEFT] + motor_speed[RIGHT]) / 2;
+  return motors_speed;
 }
 
 void motors_update() {
   // called every SAMPLE_TIME ms
 
+  measure_speed();
+  speed_pid.Compute();
+
+  Serial.print(motors_speed);
+  Serial.print("\t");
+  Serial.print(motors_power * 100);
+  Serial.print("\t");
+  Serial.print(target_speed);
+
+/*
   measure_direction();
   target_dir_closest = closest_angle(target_dir, robot_dir);
   if (direction_pid.GetMode() == AUTOMATIC && direction_pid.Compute()) {
@@ -145,7 +145,6 @@ void motors_update() {
     target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
     target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
   }
-
 
   Serial.print(target_dir_closest);
   Serial.print(" - ");
@@ -155,25 +154,12 @@ void motors_update() {
   Serial.print("\t");
   Serial.print(speed_diff * 10);
 
-  for (int i = 0; i < 2; i++) {
-    speed_pid[i].Compute();
-  }
-
-
-  measure_speed();
-/*
-  Serial.print(motor_speed[LEFT]);
-  Serial.print("\t");
-  Serial.print(motor_power[LEFT] * 100);
-  Serial.print("\t");
-  Serial.print(motor_speed[RIGHT]);
-  Serial.print("\t");
-  Serial.print(motor_power[RIGHT] * 100);
 */
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)
-    set_motor_power(wheel, motor_power[wheel]);
+//    set_motor_power(wheel, motors_power);
+    set_motor_power(wheel, 0.5);
 }
 
 void motors_setup() {
@@ -190,11 +176,9 @@ void motors_setup() {
   pinMode(RIGHT_ENCODER_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENCODER_PIN), encoder_right, CHANGE);
 
-  for (int i = 0; i < 2; i++) {
-    speed_pid[i].SetMode(AUTOMATIC);
-    speed_pid[i].SetOutputLimits(speed_pid_limits[0], speed_pid_limits[1]);
-    speed_pid[i].SetSampleTime(SAMPLE_TIME);
-  }
+  speed_pid.SetMode(AUTOMATIC);
+  speed_pid.SetOutputLimits(speed_pid_limits[0], speed_pid_limits[1]);
+  speed_pid.SetSampleTime(SAMPLE_TIME);
 
   direction_pid.SetMode(AUTOMATIC);
   direction_pid.SetOutputLimits(direction_pid_limits[0], direction_pid_limits[1]);
