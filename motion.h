@@ -6,6 +6,7 @@
 #define BACK 0
 
 #define SAMPLE_TIME 20
+#define LARGE_INTERVAL 10000  // 10s
 
 void motors_setup();
 void motors_update();

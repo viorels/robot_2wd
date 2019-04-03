@@ -13,9 +13,9 @@ double motors_power = 0.0;    // -1 - +1 range
 double motors_speed = 0.0;    // pulses/s, average between 2 wheels
 double target_speed = 0.0;    // in pulses/s
 float target_speed_mps = 0;   // in m/s
-RunningAverage speed_avg(25);
+RunningAverage pulse_avg[2] = {RunningAverage(2), RunningAverage(2)};
 
-double Kp = 0.005, Ki = 0.01, Kd = 0.0;
+double Kp = 0.01, Ki = 0.08, Kd = 0.0001;
 double speed_pid_limits[2] = {-1.0, 1.0};
 PID speed_pid(&motors_speed, &motors_power, &target_speed, Kp, Ki, Kd, DIRECT);
 
@@ -32,22 +32,36 @@ double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
 volatile long pulses[2] = {0, 0};
-volatile unsigned long last_pulse[2] = {0, 0};  // time for debouncing
+volatile unsigned long last_pulse[2][2] = {{millis(), millis()}, {millis(), millis()}};  // time for debouncing
 int motors_state[2] = {0, 0};  // +1/0/-1 for each wheel, sign of power applied to the motors
 
-void encoder_pulse(int wheel) {
-  if (millis() - last_pulse[wheel] >= 2) {  // debounce 2ms
+void static inline encoder_pulse(int wheel, int encoder_pin) {
+  int state = digitalRead(encoder_pin);
+
+  unsigned long now = millis();
+
+  if (now - last_pulse[wheel][state] >= 2) {  // debounce 2ms
     pulses[wheel] = pulses[wheel] + motors_state[wheel];
-    last_pulse[wheel] = millis();
+    float pulse_interval = now - last_pulse[wheel][state];
+
+    float signed_pulse_interval = motors_state[wheel] * pulse_interval;
+    if (motors_state[wheel] == 0) {
+       signed_pulse_interval = LARGE_INTERVAL;  // long interval to signal engine is stopped (but wheel is NOT!)
+    }
+
+    pulse_avg[wheel].addValue(signed_pulse_interval);  // TODO: volatile?
+    last_pulse[wheel][state] = now;
   }
+
+  // TODO: integer division and power of 2 size
 }
 
 void encoder_left() {
-  encoder_pulse(LEFT);
+  encoder_pulse(LEFT, LEFT_ENCODER_PIN);
 }
 
 void encoder_right() {
-  encoder_pulse(RIGHT);
+  encoder_pulse(RIGHT, RIGHT_ENCODER_PIN);
 }
 
 void set_motor_power(int wheel, float power) {
@@ -83,7 +97,8 @@ void set_speed(float target_speed_mps) {
   target_speed = mps_to_pps(target_speed_mps);
 
   // be optimistic about actual speed
-  motors_speed = target_speed;
+  pulse_avg[LEFT].addValue(1000.0 / target_speed);
+  pulse_avg[RIGHT].addValue(1000.0 / target_speed);
 }
 
 void set_direction(float angle) {
@@ -109,21 +124,21 @@ float get_target_direction() {
 }
 
 void measure_speed() {
-  static long last_time_pulses[2] = {0, 0};
-
-  long new_pulses = 0;
+  /*
+    float alpha = 0.04; // factor to tune
+    motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
+  */
+  float speed[2];
   for (int wheel = 0; wheel < 2; wheel++) {
-    new_pulses += pulses[wheel] - last_time_pulses[wheel];
-    last_time_pulses[wheel] = pulses[wheel];
+    if (millis() - last_pulse[wheel][HIGH] > 100) {   // consider it stopped after 100ms
+      pulse_avg[wheel].addValue(LARGE_INTERVAL);
+    }
+    speed[wheel] = 1000.0 / pulse_avg[wheel].getAverage();
+    if (abs(speed[wheel]) < 1)
+      speed[wheel] = 0;
   }
-  new_pulses /= 2.0;  // average the 2 wheels
-  double measurement = new_pulses * 1000.0 / SAMPLE_TIME;
 
-//  float alpha = 0.04; // factor to tune
-//  motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
-
-  speed_avg.addValue(measurement);
-  motors_speed = speed_avg.getAverage();
+  motors_speed = (speed[LEFT] + speed[RIGHT]) / 2.0;
 }
 
 float get_speed() {
@@ -150,21 +165,21 @@ void motors_update() {
     target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
     target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
   }
-
+*/
+/*
   Serial.print(target_dir_closest);
   Serial.print(" - ");
   Serial.print(robot_dir);
-//  Serial.print(" = ");
-//  Serial.print(target_dir_closest - robot_dir);
+  //  Serial.print(" = ");
+  //  Serial.print(target_dir_closest - robot_dir);
   Serial.print("\t");
   Serial.print(speed_diff * 10);
-
 */
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)
     set_motor_power(wheel, motors_power);
-//    set_motor_power(wheel, 0.5);
+//    set_motor_power(LEFT, 0.5);
 }
 
 void motors_setup() {
@@ -180,6 +195,11 @@ void motors_setup() {
   attachInterrupt(digitalPinToInterrupt(LEFT_ENCODER_PIN), encoder_left, CHANGE);
   pinMode(RIGHT_ENCODER_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENCODER_PIN), encoder_right, CHANGE);
+
+  for (int wheel = 0; wheel < 2; wheel++) {
+    pulse_avg[wheel].clear();
+    pulse_avg[wheel].addValue(LARGE_INTERVAL);
+  }
 
   speed_pid.SetMode(AUTOMATIC);
   speed_pid.SetOutputLimits(speed_pid_limits[0], speed_pid_limits[1]);
