@@ -4,6 +4,7 @@
 
 #include <PID_v1.h>
 #include <Arduino.h>
+#include "RunningAverage.h"
 #include "robot_config.h"
 #include "motion.h"
 
@@ -12,8 +13,9 @@ double motors_power = 0.0;    // -1 - +1 range
 double motors_speed = 0.0;    // pulses/s, average between 2 wheels
 double target_speed = 0.0;    // in pulses/s
 float target_speed_mps = 0;   // in m/s
+RunningAverage speed_avg(25);
 
-double Kp = 0.02, Ki = 0.0, Kd = 0.0;
+double Kp = 0.005, Ki = 0.01, Kd = 0.0;
 double speed_pid_limits[2] = {-1.0, 1.0};
 PID speed_pid(&motors_speed, &motors_power, &target_speed, Kp, Ki, Kd, DIRECT);
 
@@ -117,8 +119,11 @@ void measure_speed() {
   new_pulses /= 2.0;  // average the 2 wheels
   double measurement = new_pulses * 1000.0 / SAMPLE_TIME;
 
-  float alpha = 0.1; // factor to tune
-  motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
+//  float alpha = 0.04; // factor to tune
+//  motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
+
+  speed_avg.addValue(measurement);
+  motors_speed = speed_avg.getAverage();
 }
 
 float get_speed() {
@@ -158,8 +163,8 @@ void motors_update() {
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)
-//    set_motor_power(wheel, motors_power);
-    set_motor_power(wheel, 0.5);
+    set_motor_power(wheel, motors_power);
+//    set_motor_power(wheel, 0.5);
 }
 
 void motors_setup() {
