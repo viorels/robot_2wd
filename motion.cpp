@@ -10,14 +10,15 @@
 
 // speed PID
 double motors_power = 0.0;    // -1 - +1 range
+double motors_power_change = 0.0;
 double motors_speed = 0.0;    // pulses/s, average between 2 wheels
 double target_speed = 0.0;    // in pulses/s
 float target_speed_mps = 0;   // in m/s
-RunningAverage pulse_avg[2] = {RunningAverage(2), RunningAverage(2)};
+RunningAverage pulse_avg[2] = {RunningAverage(10), RunningAverage(10)};
 
-double Kp = 0.01, Ki = 0.08, Kd = 0.0001;
+double Kp = 0.001, Ki = 0.000, Kd = 0.00015;
 double speed_pid_limits[2] = {-1.0, 1.0};
-PID speed_pid(&motors_speed, &motors_power, &target_speed, Kp, Ki, Kd, DIRECT);
+PID speed_pid(&motors_speed, &motors_power_change, &target_speed, Kp, Ki, Kd, DIRECT);
 
 // direction PID
 double initial_dir = -1;  // reference for pulse differences between wheels
@@ -26,13 +27,14 @@ double target_dir = -1;   // where do we want to go
 double target_dir_closest = -1;  // not normalized angle that is closest in value to current direction
 double speed_diff = 0;  // +/- for each wheel to achieve target_dir
 
-//double Kp_dir = 1, Ki_dir = 0.5, Kd_dir = 0.05;
 double Kp_dir = 0.2, Ki_dir = 1, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
 double direction_pid_limits[2] = {-40, +40};
 PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
 volatile long pulses[2] = {0, 0};
-volatile unsigned long last_pulse[2][2] = {{millis(), millis()}, {millis(), millis()}};  // time for debouncing
+volatile unsigned long last_pulse[2][2] = {   // time for debouncing and interval start
+  {millis(), millis()},
+  {millis(), millis()}};
 int motors_state[2] = {0, 0};  // +1/0/-1 for each wheel, sign of power applied to the motors
 
 void static inline encoder_pulse(int wheel, int encoder_pin) {
@@ -45,15 +47,17 @@ void static inline encoder_pulse(int wheel, int encoder_pin) {
     float pulse_interval = now - last_pulse[wheel][state];
 
     float signed_pulse_interval = motors_state[wheel] * pulse_interval;
-    if (motors_state[wheel] == 0) {
-       signed_pulse_interval = LARGE_INTERVAL;  // long interval to signal engine is stopped (but wheel is NOT!)
+    if (motors_state[wheel] == 0 || signed_pulse_interval > LARGE_PULSE_INTERVAL) {
+       signed_pulse_interval = LARGE_PULSE_INTERVAL;  // long interval to signal engine is stopped (but wheel is NOT!)
     }
 
+    // at ~1rps there is a ~2.5Hz wheel wobbling
+//    Serial.print(signed_pulse_interval);
+
     pulse_avg[wheel].addValue(signed_pulse_interval);  // TODO: volatile?
+
     last_pulse[wheel][state] = now;
   }
-
-  // TODO: integer division and power of 2 size
 }
 
 void encoder_left() {
@@ -124,17 +128,15 @@ float get_target_direction() {
 }
 
 void measure_speed() {
-  /*
-    float alpha = 0.04; // factor to tune
-    motors_speed = alpha * measurement + (1 - alpha) * motors_speed;
-  */
   float speed[2];
   for (int wheel = 0; wheel < 2; wheel++) {
-    if (millis() - last_pulse[wheel][HIGH] > 100) {   // consider it stopped after 100ms
-      pulse_avg[wheel].addValue(LARGE_INTERVAL);
+    if (millis() - last_pulse[wheel][HIGH] > LARGE_PULSE_INTERVAL) {   // consider it stopped after 100ms
+      pulse_avg[wheel].addValue(2 * LARGE_PULSE_INTERVAL);
     }
+
     speed[wheel] = 1000.0 / pulse_avg[wheel].getAverage();
-    if (abs(speed[wheel]) < 1)
+
+    if (abs(speed[wheel]) < (1000 / LARGE_PULSE_INTERVAL))
       speed[wheel] = 0;
   }
 
@@ -150,6 +152,7 @@ void motors_update() {
 
   measure_speed();
   speed_pid.Compute();
+  motors_power = constrain(motors_power + motors_power_change, -1.0, +1.0);
 
   Serial.print(motors_speed);
   Serial.print("\t");
@@ -179,7 +182,6 @@ void motors_update() {
 
   for (int wheel = 0; wheel < 2; wheel++)
     set_motor_power(wheel, motors_power);
-//    set_motor_power(LEFT, 0.5);
 }
 
 void motors_setup() {
@@ -198,7 +200,7 @@ void motors_setup() {
 
   for (int wheel = 0; wheel < 2; wheel++) {
     pulse_avg[wheel].clear();
-    pulse_avg[wheel].addValue(LARGE_INTERVAL);
+    pulse_avg[wheel].addValue(LARGE_PULSE_INTERVAL);
   }
 
   speed_pid.SetMode(AUTOMATIC);

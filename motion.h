@@ -6,7 +6,7 @@
 #define BACK 0
 
 #define SAMPLE_TIME 20
-#define LARGE_INTERVAL 10000  // 10s
+#define LARGE_PULSE_INTERVAL 100  // 0.1s, 1/4 rps
 
 void motors_setup();
 void motors_update();
