@@ -25,11 +25,11 @@ double initial_dir = -1;  // reference for pulse differences between wheels
 double robot_dir = -1;    // degrees
 double target_dir = -1;   // where do we want to go
 double target_dir_closest = -1;  // not normalized angle that is closest in value to current direction
-double speed_diff = 0;  // +/- for each wheel to achieve target_dir
+double power_diff = 0;    // +/- for each wheel to achieve target_dir
 
-double Kp_dir = 0.2, Ki_dir = 1, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
-double direction_pid_limits[2] = {-40, +40};
-PID direction_pid(&robot_dir, &speed_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
+double Kp_dir = 0.005, Ki_dir = 0.00, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
+double direction_pid_limits[2] = {-1, +1};
+PID direction_pid(&robot_dir, &power_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
 volatile long pulses[2] = {0, 0};
 volatile unsigned long last_pulse[2][2] = {   // time for debouncing and interval start
@@ -101,8 +101,10 @@ void set_speed(float target_speed_mps) {
   target_speed = mps_to_pps(target_speed_mps);
 
   // be optimistic about actual speed
-  pulse_avg[LEFT].addValue(1000.0 / target_speed);
-  pulse_avg[RIGHT].addValue(1000.0 / target_speed);
+  if (target_speed != 0) {
+    pulse_avg[LEFT].addValue(1000.0 / target_speed);
+    pulse_avg[RIGHT].addValue(1000.0 / target_speed);
+  }
 }
 
 void set_direction(float angle) {
@@ -153,35 +155,35 @@ void motors_update() {
   measure_speed();
   speed_pid.Compute();
   motors_power = constrain(motors_power + motors_power_change, -1.0, +1.0);
-
+  float power[2] = {motors_power, motors_power};
+/*
   Serial.print(motors_speed);
   Serial.print("\t");
   Serial.print(motors_power * 100);
   Serial.print("\t");
   Serial.print(target_speed);
+*/
 
-/*
   measure_direction();
   target_dir_closest = closest_angle(target_dir, robot_dir);
   if (direction_pid.GetMode() == AUTOMATIC && direction_pid.Compute()) {
     int speed_limit_pps = mps_to_pps(MAX_SPEED);
-    target_speed[LEFT] = constrain(mps_to_pps(target_speed_mps) + speed_diff, -speed_limit_pps, speed_limit_pps);
-    target_speed[RIGHT] = constrain(mps_to_pps(target_speed_mps) - speed_diff, -speed_limit_pps, speed_limit_pps);
+    power[LEFT] = constrain(motors_power + power_diff, -1, 1);
+    power[RIGHT] = constrain(motors_power - power_diff, -1, 1);
   }
-*/
-/*
+
   Serial.print(target_dir_closest);
   Serial.print(" - ");
   Serial.print(robot_dir);
-  //  Serial.print(" = ");
-  //  Serial.print(target_dir_closest - robot_dir);
-  Serial.print("\t");
-  Serial.print(speed_diff * 10);
-*/
+//  Serial.print(" = ");
+//  Serial.print(target_dir_closest - robot_dir);
+//  Serial.print("\t");
+//  Serial.print(power_diff * 100);
+
   Serial.println("");
 
   for (int wheel = 0; wheel < 2; wheel++)
-    set_motor_power(wheel, motors_power);
+    set_motor_power(wheel, power[wheel]);
 }
 
 void motors_setup() {

@@ -13,7 +13,7 @@ unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
 unsigned long timer_sonar = 0;
 
-float speed = MAX_SPEED / 2;  // at least 1/6
+float speed = MAX_SPEED / 3;  // at least 1/4
 float direction = 90;
 
 void setup() {
