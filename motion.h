@@ -13,6 +13,7 @@ void motors_update();
 
 void set_speed(float target_speed_mps);
 float get_speed();  // average speed between 2 wheels
+float get_distance();   // in meters
 
 void set_direction(float angle);
 float get_direction();  // get direction as measured by encoder

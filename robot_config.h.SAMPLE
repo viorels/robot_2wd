@@ -30,3 +30,5 @@
 #define WHEEL_DIAM 0.07
 #define WHEEL_ENCODER_PULSES 40  // 20 slits, 40 changes
 
+#define MAX_SPEED 0.82 // m/s
+#

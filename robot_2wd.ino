@@ -113,15 +113,22 @@ void loop() {
 
   }
 
+  static float start_distance;
+
   switch (bot_state) {
     case STOPPED:
       if (!obstacle) {
         move_bot(FWD);
         bot_state = MOVING;
+        start_distance = get_distance();
       }
       break;
 
     case MOVING:
+      if (get_distance() - start_distance >= 1) {
+        stop_bot();
+//        bot_state = STOPPED;
+      };
       if (obstacle) {
         stop_bot();
         rotate_bot(180);

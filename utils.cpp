@@ -56,6 +56,10 @@ static inline int8_t sign(float val) {
   return 1;
 }
 
+static inline bool isclose(float x, float y) {
+  return fabs(x-y) < 0.001;
+}
+
 void __assert(const char *__func, const char *__file, int __lineno, const char *__sexp) {
   // transmit diagnostic informations through serial link.
   Serial.print("assert");

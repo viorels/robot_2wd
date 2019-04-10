@@ -100,10 +100,15 @@ float mps_to_pps(float mps) {
 void set_speed(float target_speed_mps) {
   target_speed = mps_to_pps(target_speed_mps);
 
-  // be optimistic about actual speed
-  if (target_speed != 0) {
+  if (!isclose(target_speed, 0)) {
+    speed_pid.SetMode(AUTOMATIC);
+
+    // be optimistic about actual speed
     pulse_avg[LEFT].addValue(1000.0 / target_speed);
     pulse_avg[RIGHT].addValue(1000.0 / target_speed);
+  }
+  else {
+    speed_pid.SetMode(MANUAL);
   }
 }
 
@@ -111,6 +116,10 @@ void set_direction(float angle) {
   if (initial_dir == -1)
     initial_dir = angle;
   target_dir = angle;
+}
+
+float get_distance() {
+  return PI * WHEEL_DIAM * ((pulses[LEFT] + pulses[RIGHT]) / 2) / WHEEL_ENCODER_PULSES;
 }
 
 void measure_direction() {
@@ -153,9 +162,18 @@ void motors_update() {
   // called every SAMPLE_TIME ms
 
   measure_speed();
-  speed_pid.Compute();
-  motors_power = constrain(motors_power + motors_power_change, -1.0, +1.0);
-  float power[2] = {motors_power, motors_power};
+  float power[2];
+  if (speed_pid.GetMode() == AUTOMATIC) {
+    speed_pid.Compute();
+    motors_power = constrain(motors_power + motors_power_change, -1.0, +1.0);
+    power[LEFT] = motors_power;
+    power[RIGHT] = motors_power;
+  }
+  else {
+    power[LEFT] = 0;
+    power[RIGHT] = 0;
+  }
+
 /*
   Serial.print(motors_speed);
   Serial.print("\t");
@@ -166,15 +184,17 @@ void motors_update() {
 
   measure_direction();
   target_dir_closest = closest_angle(target_dir, robot_dir);
-  if (direction_pid.GetMode() == AUTOMATIC && direction_pid.Compute()) {
+  if (direction_pid.GetMode() == AUTOMATIC) {
+    direction_pid.Compute();
     int speed_limit_pps = mps_to_pps(MAX_SPEED);
-    power[LEFT] = constrain(motors_power + power_diff, -1, 1);
-    power[RIGHT] = constrain(motors_power - power_diff, -1, 1);
+    power[LEFT] = constrain(power[LEFT] + power_diff, -1, 1);
+    power[RIGHT] = constrain(power[RIGHT] - power_diff, -1, 1);
   }
 
-  Serial.print(target_dir_closest);
-  Serial.print(" - ");
-  Serial.print(robot_dir);
+//  Serial.print(target_dir_closest);
+//  Serial.print(" - ");
+//  Serial.print(robot_dir);
+
 //  Serial.print(" = ");
 //  Serial.print(target_dir_closest - robot_dir);
 //  Serial.print("\t");
