@@ -14,7 +14,8 @@ unsigned long timer_sample = 0;
 unsigned long timer_1s = 0;
 unsigned long timer_sonar = 0;
 
-float speed = MAX_SPEED / 3;  // at least 1/4
+#define TURN_DISTANCE 20
+float speed = MAX_SPEED / 4;  // at least 1/4
 float direction = 90;
 
 void setup() {
@@ -89,18 +90,41 @@ void loop() {
   static int bot_state = STOPPED;
   static bool obstacle = false;
 
+  Serial << "S:" << bot_state;
+
   long loop_start = millis();
 
+  static int last_distance = 100;
+  if (distance != 0) {
+    last_distance = distance;
+  }
   if (check_timer(timer_sonar)) {
     set_timer(timer_sonar, MAX_SONAR_TIME);
     distance = 0;  // clear distance in case the obstacle is no longer there
     sonar.ping_timer(echoCheck);  // async
   }
 
+  //obstacle = distance != 0 && distance < TURN_DISTANCE;
+  if (distance == 0) {
+    if (last_distance < TURN_DISTANCE/2) {
+      obstacle = true;
+      distance = 1;
+    }
+    else {
+      obstacle = false;
+    }
+  }
+  else if (distance < TURN_DISTANCE) {
+    obstacle = true;
+  }
+  else {
+    obstacle = false;
+  }
+  Serial << " sonar:" << distance << ":" << obstacle;
+
   if (distance > 0) {  // if distance is 0 then nothing is in range OR it's touching an obstacle
     sonar_buzz(distance);
   }
-  obstacle = distance != 0 && distance < 10;
 
   if (check_timer(timer_sample)) {
     set_timer(timer_sample, SAMPLE_TIME);
@@ -128,7 +152,7 @@ void loop() {
     case MOVING:
       if (get_distance() - start_distance >= 1) {
         stop_bot();
-//        bot_state = STOPPED;
+        bot_state = STOPPED;
       };
       if (obstacle) {
         stop_bot();
@@ -144,4 +168,6 @@ void loop() {
 
       break;
   }
+
+  Serial << endl;
 }
