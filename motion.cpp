@@ -27,7 +27,7 @@ double target_dir = -1;   // where do we want to go
 double target_dir_closest = -1;  // not normalized angle that is closest in value to current direction
 double power_diff = 0;    // +/- for each wheel to achieve target_dir
 
-double Kp_dir = 0.005, Ki_dir = 0.00, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
+double Kp_dir = 0.005, Ki_dir = 0.001, Kd_dir = 0.0; // Kd must be 0, else there are problems at 359 => 1 transition
 double direction_pid_limits[2] = {-1, +1};
 PID direction_pid(&robot_dir, &power_diff, &target_dir_closest, Kp_dir, Ki_dir, Kd_dir, DIRECT);
 
