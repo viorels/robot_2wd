@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "utils.h"
 
-#include <PID_v1.h>
+#include <PID_v2.h>
 #include <Arduino.h>
 #include "RunningAverage.h"
 #include "robot_config.h"

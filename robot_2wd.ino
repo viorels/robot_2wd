@@ -1,6 +1,7 @@
 #include <NewPing.h>
-#include <NewTone.h>
-#include <PID_v1.h>
+#include <NewTone.h>  // https://bitbucket.org/teckel12/arduino-new-tone/wiki/Home
+#include <PID_v2.h>
+#include <Streaming.h>
 #include "robot_config.h"
 #include "motion.h"
 #include "utils.h"
